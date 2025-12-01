@@ -3,7 +3,6 @@
  */
 
 #include <SPI.h>
-#include <HighPowerStepperDriver.h>
 #include "MotorWrapperLib.h"
 #include "Button.h"
 

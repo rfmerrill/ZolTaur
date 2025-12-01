@@ -6,7 +6,7 @@
  */
 
  #include <SPI.h>
- #include <HighPowerStepperDriver.h>
+ #include "src/HighPowerStepperDriver/HighPowerStepperDriver.h"
 
 typedef enum 
 {
