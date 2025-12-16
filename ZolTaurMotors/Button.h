@@ -12,14 +12,8 @@ typedef struct
    unsigned long lastRead;
 }Button;
 
-typedef enum
-{
-   dSwPin = 5,
-   lSw1Pin = 6,
-   lSw2Pin = 7,
-   sBtnPin = 8
-}Button_Type;
 
+// Init with the addr to a button struct and a pin number to attach to
 void buttonInit(Button *b, int pNum)
 {
    b->PinNum = pNum;

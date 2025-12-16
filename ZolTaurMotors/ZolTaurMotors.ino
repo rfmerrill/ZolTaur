@@ -1,5 +1,7 @@
 /*
  * Pawprint Prototyping:
+ * 
+ * Arduino Due
  * Libraries Used:
  * HiTorque Motor:
  * https://github.com/pololu/high-power-stepper-driver-arduino
@@ -8,31 +10,58 @@
  */
 
 #include <SPI.h>
-#include "MotorWrapperLib.h"
+#include "StepperMotorLib.h"
 #include "Button.h"
 
+// State Stuff ///////////////////
+//Enum for easy state name access in switch case later
 enum State
 {
   Init,
   Stby,
   Home,
+  goToDegree,
   TurnClockwise,
-  TurnAntiClockwise
+  TurnAntiClockwise,
+  Wave1,
+  Wave2
   //wave, talk, wave2, etc
 };
 
-volatile uint8_t intFlag = 0; //interrupt flags
-
+volatile uint32_t intFlag = 0; //interrupt flags
+//Create the state variable for switch case later
 uint8_t stateVar;
-mtrWrap armMotor, mouthMotor;
-Rpmx100_Type r;
-Pin_Type p; //might need refactoring
-Direction_Type d;
-Button_Type b; //might need refactoring
 
-Button button1, button2; //etc
 
-int ledPin = 9;
+
+//Motors ///////////////////////
+
+//Struct for default stepper motor 0 pin names
+
+
+//Declare Arm Motor
+StepperMotor armMotor;
+
+
+
+
+//Buttons //////////////////////
+
+Button limitSwHome, limitSwitchOpen; //etc
+Button mode; //debug button for changing mode, remove after integrating rPi talk
+
+//name access for button pins
+typedef enum
+{
+   HmLimSwPin = 5,
+   OpenLimSw1Pin = 6,
+   modeBttnPin = 7
+   //sBtnPin = 8
+}Button_Name_Bundle_Type;
+
+Button_Name_Bundle_Type BttnNmBndl;
+
+uint8_t ledPin = LED_BUILTIN;
 volatile bool ledState = true;
 
 
@@ -46,6 +75,8 @@ void setup()
 
   //init buttons
   //buttonInit();
+
+
 }
 
 void loop()

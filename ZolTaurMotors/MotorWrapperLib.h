@@ -8,18 +8,13 @@
  #include <SPI.h>
  #include "src/HighPowerStepperDriver/HighPowerStepperDriver.h"
 
-typedef enum 
-{
-  DirPin = 2,
-  StepPin = 3,
-  CsPin = 4,
-}Pin_Type;
+
 
 typedef enum
 {
    forward, //Counter Clockwise
    reverse  //Clockwise
-}Direction_Type;
+}Direction_Name_Enum;
 
 typedef enum 
 {
