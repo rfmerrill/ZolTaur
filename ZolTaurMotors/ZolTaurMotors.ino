@@ -1,5 +1,10 @@
 /*
  * Pawprint Prototyping:
+ * Libraries Used:
+ * HiTorque Motor:
+ * https://github.com/pololu/high-power-stepper-driver-arduino
+ * DueTimer:
+ * https://github.com/ivanseidel/DueTimer
  */
 
 #include <SPI.h>
@@ -9,7 +14,10 @@
 enum State
 {
   Init,
-  Stby 
+  Stby,
+  Home,
+  TurnClockwise,
+  TurnAntiClockwise
   //wave, talk, wave2, etc
 };
 
