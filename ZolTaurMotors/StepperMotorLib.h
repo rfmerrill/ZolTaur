@@ -41,24 +41,7 @@ typedef enum
 }DirectionNameEnum;
 
 
-//period or frequency conversion here
-//Convert tenths of a degree per second to the pulse period in microseconds
-//needed to make the motor achieve that speed. Takes into account the
-//microstepping mode of the motor. Also this assumes that the motor turns
-//1.8 degrees or 18 tenths of a degree per full step
-//This function takes in a speed that's in tenths of a degree per second
-//and it returns a number measured in microseconds that corresponds to half the
-//motors full pulse width
-//Decidegrees are used so that integer division can be avoided
-uint32_t perConverter(StepperMotor *StepMotor, uint16_t speedTenthsDegreePerSecond)
-{
-  const uint8_t degTenthsPerStep = 18; //1.8 degrees per step
-  const uint32_t million = 1000000;
-  uint16_t uStepMode = StepMotor-> MicroStepMode;
-  uint16_t speed = speedTenthsDegreePerSecond;
-  uint32_t uSecondsPerUStep = (uint32_t)(degTenthsPerStep*million)/(uStepMode*speed);
-  return uSecondsPerUStep;
-}
+
 
 
 
@@ -73,9 +56,9 @@ typedef struct
   uint8_t chipSelectPin; // Chip Select Pin
   uint16_t motorCurrent; //MotorCurrent in MilliAmperes
   //Speed in degrees per second
-  uint16_t motorSpeedDegPerSec;
+  uint16_t motorSpeedTenthsDegPerSec;
   //Period in MicroSeconds for StepPinToggle derived from MotorSpeedDegPerSec
-  uint16_t stepPeriodMicroSec; 
+  uint32_t uStepHalfPeriodPerMicroStep;
   //Stepper Direction AntiClockwise or Clockwise
   DirectionNameEnum Direction;
   MicroStepModeEnum MicroStepMode;
@@ -83,7 +66,26 @@ typedef struct
   HighPowerStepperDriver StepDriver;
 }StepperMotor;
 
-
+//period or frequency conversion here
+//Convert tenths of a degree per second to the pulse period in microseconds
+//needed to make the motor achieve that speed. Takes into account the
+//microstepping mode of the motor. Also this assumes that the motor turns
+//1.8 degrees or 18 tenths of a degree per full step
+//This function takes in a speed that's in tenths of a degree per second
+//and it returns a number measured in microseconds that corresponds to half the
+//motors full pulse width
+//Decidegrees are used so that integer division can be avoided
+//Caution, don't call this function until the motor has had it's dd/sec speed
+//and it's microstepping setting have been set
+uint32_t perConverter(StepperMotor *StepMotor, uint16_t speedTenthsDegreePerSecond)
+{
+  const uint8_t degTenthsPerStep = 18; //1.8 degrees per step
+  const uint32_t million = 1000000;
+  uint16_t uStepMode = StepMotor-> MicroStepMode;
+  uint16_t speed = speedTenthsDegreePerSecond;
+  uint32_t uSecondsPerUStep = (uint32_t)(degTenthsPerStep*million)/(uStepMode*speed);
+  return uSecondsPerUStep;
+}
 
 //Helper Functions /////////////////////
 //Slow since it calls on SPI
@@ -110,12 +112,22 @@ void setdirection(StepperMotor *StepMotor, DirectionNameEnum Direction)
   digitalWrite(StepMotor->directionPin, StepMotor->Direction);
 }
 
-void setspeed()
+////Caution, don't call this function until the motor has had it's
+//microstepping parameters have been set.
+//Takes in a value representing tenths of a degree per second and sets the
+//TODO: Consider the and plan around the ramifications of setting the speed
+//to zero (stopping the motor) and how to prevent issues from that
+void setSpeed(StepperMotor *StepMotor, uint16_t speedTenthDegPerSec)
 {
-
+  StepMotor->motorSpeedTenthsDegPerSec = speedTenthDegPerSec;
+  StepMotor->uStepHalfPeriodPerMicroStep=perConverter(StepMotor, speedTenthDegPerSec);
 }
 
-
+//Same caution and requirements as setSpeed
+uint16_t getSpeed(StepperMotor *StepMotor)
+{
+  return StepMotor->motorSpeedTenthsDegPerSec;
+}
 
 //Inits the motor from library
 void StepperMotorInit
@@ -162,14 +174,14 @@ void StepperMotorInit
   StepMotor->motorCurrent = motorCurrent;
   StepMotor->StepDriver.setCurrentMilliamps36v4(StepMotor->motorCurrent);
 
-  //Set Motor Speed
-  StepMotor->motorSpeedDegPerSec = motorSpeed;
-
   //Set microstep fraction parameter (Number of MicroSteps Per Full Step)
   setMicroStepParameter(StepMotor, MicroStepMode);
 
-  //Set microstep Period in microseconds
+  //Set Motor Speed
+  StepMotor->motorSpeedTenthsDegPerSec = motorSpeed;
 
+  //Set microstep half Period in microseconds
+  setSpeed(StepMotor, motorSpeed);
 
   //Set Motor Direction
   setdirection(StepMotor, Direction);
