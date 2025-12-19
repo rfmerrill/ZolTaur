@@ -42,7 +42,23 @@ typedef enum
 
 
 //period or frequency conversion here
-//Convert degrees per second to
+//Convert tenths of a degree per second to the pulse period in microseconds
+//needed to make the motor achieve that speed. Takes into account the
+//microstepping mode of the motor. Also this assumes that the motor turns
+//1.8 degrees or 18 tenths of a degree per full step
+//This function takes in a speed that's in tenths of a degree per second
+//and it returns a number measured in microseconds that corresponds to half the
+//motors full pulse width
+//Decidegrees are used so that integer division can be avoided
+uint32_t perConverter(StepperMotor *StepMotor, uint16_t speedTenthsDegreePerSecond)
+{
+  const uint8_t degTenthsPerStep = 18; //1.8 degrees per step
+  const uint32_t million = 1000000;
+  uint16_t uStepMode = StepMotor-> MicroStepMode;
+  uint16_t speed = speedTenthsDegreePerSecond;
+  uint32_t uSecondsPerUStep = (uint32_t)(degTenthsPerStep*million)/(uStepMode*speed);
+  return uSecondsPerUStep;
+}
 
 
 
@@ -70,7 +86,6 @@ typedef struct
 
 
 //Helper Functions /////////////////////
-
 //Slow since it calls on SPI
 void setMicroStepParameter(StepperMotor *StepMotor, MicroStepModeEnum MicroStepMode)
 {
