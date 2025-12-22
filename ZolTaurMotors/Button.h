@@ -8,6 +8,8 @@ typedef struct
    int PinNum;
    int buttonDebounce;
    int debouncePerMs;
+   //only gets changed by the external interrupt
+   //thus the volatile
    volatile bool active;
    unsigned long lastRead;
 }Button;

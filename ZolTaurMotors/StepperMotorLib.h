@@ -229,7 +229,8 @@ bool step(StepperMotor *StepMotor)
       return false;
     // check period timer then go to falling when timer == period
     case high:
-      if(StepMotor->stepTimer >= StepMotor->uStepHalfPeriodPerMicroStep)
+      //rollover safe currentTime - startTime >=Period
+      if(micros()- StepMotor->stepTimer >= StepMotor->uStepHalfPeriodPerMicroStep)
         {
           StepMotor->StepState = falling;
           return false;
@@ -245,7 +246,8 @@ bool step(StepperMotor *StepMotor)
     //check timer and then goto rising and return true to signify the end of a cycle
     //then goto rising
     case low:
-      if(StepMotor->stepTimer >= StepMotor->uStepHalfPeriodPerMicroStep)
+      //rollover safecomparison
+      if(micros()-StepMotor->stepTimer >= StepMotor->uStepHalfPeriodPerMicroStep)
         {
           StepMotor->StepState = rising;
           return true;
