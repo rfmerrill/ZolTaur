@@ -20,7 +20,7 @@
 */
 //StepMode Enumerated Type
 //ie 256 steps makes one full step
-typedef enum
+typedef enum : uint16_t
 {
   MicroStep256 = 256,
   MicroStep128 = 128,
@@ -34,17 +34,28 @@ typedef enum
 }MicroStepModeEnum;
 
 //Directions enumerated type
-typedef enum
+typedef enum : uint8_t
 {
   AntiClockwise, //Counter Clockwise
   Clockwise  //Clockwise
 }DirectionNameEnum;
 
 
+//Use this struct so you can set you motor pins in one nameable spot
+typedef struct
+{
+  uint8_t directionPin; //Direction Pin
+  uint8_t stepPin; //Step Pin
+  uint8_t chipSelectPin; // Chip Select Pin
+}StepperMotorPinNames;
 
-
-
-
+//had to use lower case because of name collisions with macros
+typedef enum : uint8_t{
+  rising,
+  high,
+  falling,
+  low
+}StepStateEnum;
 
 
 
@@ -64,6 +75,9 @@ typedef struct
   MicroStepModeEnum MicroStepMode;
   //Stepper Driver from HighPowerStepperDriver.h
   HighPowerStepperDriver StepDriver;
+  //Timer for the stepper period
+  uint32_t stepTimer;
+  StepStateEnum StepState;
 }StepperMotor;
 
 //period or frequency conversion here
@@ -106,7 +120,7 @@ void setMicroStepParameter(StepperMotor *StepMotor, MicroStepModeEnum MicroStepM
  }
 }
 
-void setdirection(StepperMotor *StepMotor, DirectionNameEnum Direction)
+void setDirection(StepperMotor *StepMotor, DirectionNameEnum Direction)
 {
   StepMotor->Direction = Direction;
   digitalWrite(StepMotor->directionPin, StepMotor->Direction);
@@ -133,19 +147,24 @@ uint16_t getSpeed(StepperMotor *StepMotor)
 void StepperMotorInit
 (
   StepperMotor *StepMotor, //Pointer to stepper Motor Struct
-  uint8_t dirPin,
+  /*uint8_t dirPin,
   uint8_t stepPin,
-  uint8_t chipselectPin,
+  uint8_t chipselectPin,*/
+  StepperMotorPinNames * PinNames,
   uint16_t motorCurrent,
   uint16_t motorSpeed,
   MicroStepModeEnum MicroStepMode,
   DirectionNameEnum Direction
 )
 {
+  uint8_t dirPin = PinNames->directionPin;
+  uint8_t stepPin = PinNames->stepPin;
+  uint8_t chipSelectPin = PinNames->chipSelectPin;
+
   //Set pins
   StepMotor->directionPin = dirPin;
   StepMotor->stepPin = stepPin;
-  StepMotor->chipSelectPin = chipselectPin;
+  StepMotor->chipSelectPin = chipSelectPin;
 
   //init motor driver
   SPI.begin();
@@ -184,16 +203,60 @@ void StepperMotorInit
   setSpeed(StepMotor, motorSpeed);
 
   //Set Motor Direction
-  setdirection(StepMotor, Direction);
+  setDirection(StepMotor, Direction);
 
   //Enable Output Driver
   StepMotor->StepDriver.enableDriver();
+
+  //Set StepState to rising (first state)
+  StepMotor->StepState = rising;
 }
 
 
-void step(StepperMotor *StepMotor)
+
+//call this repeatedly to step the motor, the function will return false until a full step is completed
+bool step(StepperMotor *StepMotor)
 {
+  
   // The STEP minimum high pulse width is 1.9 microseconds.
+  switch (StepMotor->StepState)
+  {
+    //raise step pin and start timer, goto high
+    case rising:
+      digitalWrite(StepMotor->stepPin, HIGH);
+      StepMotor->stepTimer = micros();
+      StepMotor->StepState = high;
+      return false;
+    // check period timer then go to falling when timer == period
+    case high:
+      if(StepMotor->stepTimer >= StepMotor->uStepHalfPeriodPerMicroStep)
+        {
+          StepMotor->StepState = falling;
+          return false;
+        }
+      else
+        return false;
+    //lower step pin and start timer, goto low
+    case falling:
+      digitalWrite(StepMotor->stepPin, LOW);
+      StepMotor->stepTimer = micros();
+      StepMotor->StepState = low;
+      return false;
+    //check timer and then goto rising and return true to signify the end of a cycle
+    //then goto rising
+    case low:
+      if(StepMotor->stepTimer >= StepMotor->uStepHalfPeriodPerMicroStep)
+        {
+          StepMotor->StepState = rising;
+          return true;
+        }
+      else
+        return false;
+    //start at rising as a default if state gets lost for whatever reason
+    default:
+      StepMotor->StepState = rising;
+      return false;
+  }
   
 }
 
