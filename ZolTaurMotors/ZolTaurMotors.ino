@@ -134,10 +134,10 @@ void setup()
     AntiClockwise);
 
   //attach interrupts
-  attachInterrupt(digitalPinToInterrupt(EmergencyStopBttn.PinNum), emergencyStopBttnISR, RISING);
-  attachInterrupt(digitalPinToInterrupt(ArmHomeLimitSwitch.PinNum), armHomeLimSwISR, RISING);
-  attachInterrupt(digitalPinToInterrupt(ArmOpenLimitSwitch.PinNum), armOpenLimSwISR, RISING);
-  attachInterrupt(digitalPinToInterrupt(JawHomeLimitSwitch.PinNum), jawHomeLimSwISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(EmergencyStopBttn.pinNumber), emergencyStopBttnISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(ArmHomeLimitSwitch.pinNumber), armHomeLimSwISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(ArmOpenLimitSwitch.pinNumber), armOpenLimSwISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(JawHomeLimitSwitch.pinNumber), jawHomeLimSwISR, RISING);
 }
 
 void loop()

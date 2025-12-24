@@ -5,21 +5,21 @@
 
 typedef struct
 {
-   int PinNum;
-   int buttonDebounce;
-   int debouncePerMs;
+   uint8_t pinNumber;
+   uint8_t buttonDebounce;
+   uint8_t debouncePerMs;
    //only gets changed by the external interrupt
    //thus the volatile
    volatile bool active;
-   unsigned long lastRead;
+   uint32_t lastRead;
 }Button;
 
 
 // Init with the addr to a button struct and a pin number to attach to
-void buttonInit(Button *b, int pNum)
+void buttonInit(Button *b, uint8_t pinNumber)
 {
-   b->PinNum = pNum;
-   pinMode(b->PinNum, INPUT);
+   b->pinNumber = pinNumber;
+   pinMode(b->pinNumber, INPUT);
    b->debouncePerMs = 1;
    b->active = false;
    b->buttonDebounce = 0;
@@ -28,7 +28,7 @@ void buttonInit(Button *b, int pNum)
 
 bool buttonRead(Button *b)
 {
-   return digitalRead(b->PinNum);
+   return digitalRead(b->pinNumber);
 }
 
 void clearDebounce(Button *b)
@@ -39,7 +39,7 @@ void clearDebounce(Button *b)
 bool debounce(Button *b)
 {
    bool confirm = false;
-   unsigned long timeRead = millis();
+   uint32_t timeRead = millis();
    if((timeRead - b->lastRead)>=10)
    {
       b->lastRead = timeRead;
@@ -88,7 +88,7 @@ bool debounceLow(Button *b)
    //Looks for a string of 0's
    //To confirm a switch turning off
    bool confirm = false;
-   unsigned long timeRead = millis();
+   uint32_t timeRead = millis();
    if((timeRead - b->lastRead)>=10)
    {
       b->lastRead = timeRead;
