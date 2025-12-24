@@ -2,9 +2,14 @@
  * 
  * Aut
  * 
- * Library for controlling stepper motor position, direction, speed.
+ * Library for controlling stepper motor direction, speed, microstepping ratio, 
+ * and provides a step function that provides feedback on when a step completes.
+ * Also provides a handy way to convert speed values in decidegrees per second
+ * to half the stepper period.
  */
- 
+ #ifndef STEPPERMOTORLIB_H
+ #define STEPPERMOTORLIB_H
+
  #include <SPI.h>
  #include "src/HighPowerStepperDriver/HighPowerStepperDriver.h"
 
@@ -17,6 +22,8 @@
   macro step, used for finer control.
   Be careful when changing microstep settings as we need to write to the driver with spi
   So maybe only do it when the motor is stopped
+//DeciDegri/TenthDegree:
+  A tenth of a degree
 */
 //StepMode Enumerated Type
 //ie 256 steps makes one full step
@@ -214,10 +221,10 @@ void StepperMotorInit
 
 
 
-//call this repeatedly to step the motor, the function will return false until a full step is completed
+//call this repeatedly to step the motor, the function will return false 
+//until a full step is completed
 bool step(StepperMotor *StepMotor)
 {
-  
   // The STEP minimum high pulse width is 1.9 microseconds.
   switch (StepMotor->StepState)
   {
@@ -259,6 +266,6 @@ bool step(StepperMotor *StepMotor)
       StepMotor->StepState = rising;
       return false;
   }
-  
 }
 
+#endif /* STEPPERMOTORLIB_H */

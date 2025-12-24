@@ -15,29 +15,27 @@
 
 // State Stuff ///////////////////
 //Enum for easy state name access in switch case later
-enum State
+typedef enum
 {
-  Init,
-  Stby,
-  Home,
-  goToDegree,
+  INIT,
+  STBY,
+  GOHOME,
+  HOME,
+  GOTODEGREE,
   TurnClockwise,
   TurnAntiClockwise,
   Wave1,
   Wave2
   //wave, talk, wave2, etc
-};
+}TopState;
 
 volatile uint32_t intFlag = 0; //interrupt flags
 //Create the state variable for switch case later
-uint8_t stateVar;
-
+//uint8_t stateVar;
+TopState StateVar;
 
 
 //Motors ///////////////////////
-
-
-
 
 //Declare Arm Motor
 StepperMotor armMotor;
@@ -100,7 +98,9 @@ typedef enum : uint8_t
 void setup()
 {
   // put your setup code here, to run once:
-  stateVar = Init;
+  //StateMachine starts at init, which finishes initializing
+  //anything that didn't finish here
+  StateVar = INIT;
   
 
   //init buttons
@@ -143,7 +143,30 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  step(armMotorPtr);
+  //step(armMotorPtr);
+
+  //top level state machine
+  switch(StateVar)
+  {
+    case INIT:
+      //Init
+      break;
+
+    case STBY:
+      //Standby, don't move
+      break;
+
+    case GOHOME:
+      //Home all Motors
+      break;
+
+    case HOME:
+      //Motors are at home;
+      break;
+
+    
+  }
+
 }
 
 //here be ISR's
