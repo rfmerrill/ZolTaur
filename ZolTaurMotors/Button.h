@@ -122,4 +122,5 @@ bool debounceLow(Button *b)
    
    return confirm;
 }
-#endif /* BUTTON_H */
+
+#endif /*BUTTON_H*/

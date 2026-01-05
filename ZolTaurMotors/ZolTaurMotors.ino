@@ -11,6 +11,7 @@
 
 #include <SPI.h>
 #include "StepperMotorLib.h"
+#include "StepperControllerLib.h"
 #include "Button.h"
 
 // State Stuff ///////////////////
@@ -117,7 +118,7 @@ void setup()
   digitalWrite(jawPinsPtr->chipSelectPin, LOW);
 
   //arm
-  StepperMotorInit(
+  stepperMotorInit(
     armMotorPtr,
     armPinsPtr,
     armCurrent,
@@ -125,7 +126,7 @@ void setup()
     armStepEnum,
     AntiClockwise);
   //jaw
-  StepperMotorInit(
+  stepperMotorInit(
     jawMotorPtr,
     jawPinsPtr,
     jawCurrent,

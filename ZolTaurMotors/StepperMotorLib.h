@@ -151,12 +151,8 @@ uint16_t getSpeed(StepperMotor *StepMotor)
 }
 
 //Inits the motor from library
-void StepperMotorInit
-(
-  StepperMotor *StepMotor, //Pointer to stepper Motor Struct
-  /*uint8_t dirPin,
-  uint8_t stepPin,
-  uint8_t chipselectPin,*/
+void stepperMotorInit(
+  StepperMotor * StepMotor, //Pointer to stepper Motor Struct
   StepperMotorPinNames * PinNames,
   uint16_t motorCurrent,
   uint16_t motorSpeed,
@@ -164,14 +160,11 @@ void StepperMotorInit
   DirectionNameEnum Direction
 )
 {
-  uint8_t dirPin = PinNames->directionPin;
-  uint8_t stepPin = PinNames->stepPin;
-  uint8_t chipSelectPin = PinNames->chipSelectPin;
-
+  
   //Set pins
-  StepMotor->directionPin = dirPin;
-  StepMotor->stepPin = stepPin;
-  StepMotor->chipSelectPin = chipSelectPin;
+  StepMotor->directionPin = PinNames->directionPin;
+  StepMotor->stepPin = PinNames->stepPin;
+  StepMotor->chipSelectPin = PinNames->chipSelectPin;
 
   //init motor driver
   SPI.begin();
