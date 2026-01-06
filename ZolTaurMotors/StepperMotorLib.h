@@ -127,7 +127,7 @@ void setMicroStepParameter(StepperMotor *StepMotor, MicroStepModeEnum MicroStepM
  }
 }
 
-void setDirection(StepperMotor *StepMotor, DirectionNameEnum Direction)
+void setDirection(StepperMotor * StepMotor, DirectionNameEnum Direction)
 {
   StepMotor->Direction = Direction;
   digitalWrite(StepMotor->directionPin, StepMotor->Direction);
@@ -205,11 +205,11 @@ void stepperMotorInit(
   //Set Motor Direction
   setDirection(StepMotor, Direction);
 
+//Set StepState to rising (first state)
+  StepMotor->StepState = rising;
+
   //Enable Output Driver
   StepMotor->StepDriver.enableDriver();
-
-  //Set StepState to rising (first state)
-  StepMotor->StepState = rising;
 }
 
 
