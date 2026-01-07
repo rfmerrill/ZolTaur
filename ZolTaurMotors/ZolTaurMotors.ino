@@ -48,7 +48,7 @@ uint8_t debugPin = 20;
 StepperMotorPinNames ArmMotorPins = { .directionPin = 2, .stepPin = 3, .chipSelectPin = 4};
 StepperMotorPinNames * ArmPinsPtr = &ArmMotorPins;
 //Arm Microstepping Mode
-MicroStepModeEnum ArmStepEnum = MicroStep64;
+MicroStepModeEnum StepModeEnum = MicroStep64;
 //Arm speed in tenths of a degree per second
 uint16_t armSpeed = 100;
 //Arm Per phase current
@@ -135,8 +135,8 @@ void setup()
   stepperControllerInit(
     ArmControlPtr,
     ArmPinsPtr,
-    ArmStepEnum,
-    AntiClockwise,
+    StepModeEnum,
+    Clockwise,
     ArmHmLimSwPin,
     armCurrent,
     armSpeed,
@@ -145,7 +145,7 @@ void setup()
   stepperControllerInit(
     JawControlPtr,
     JawPinsPtr,
-    ArmStepEnum,
+    StepModeEnum,
     AntiClockwise,
     JawHmLimSwPin,
     jawCurrent,
