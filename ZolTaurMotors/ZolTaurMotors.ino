@@ -10,6 +10,8 @@
  */
 
 #include <SPI.h>
+#include "SerialController.h"
+#include <string.h>
 #include "StepperMotorLib.h"
 #include "StepperControllerLib.h"
 #include "Button.h"
@@ -68,6 +70,10 @@ uint16_t jawCurrent = 1800;
 uint16_t jawLimitDeciDeg = 300;
 MicroStepModeEnum JawStepEnum = MicroStep64;
 
+// Serial Parser
+SerialParser serialParser;
+String outputBuffer;
+
 //Declare Motor Controller
 //Arm
 StepperController ArmController;
@@ -116,6 +122,10 @@ void setup()
   
   //Set Debug Pin
   pinMode(debugPin, INPUT);
+
+  //Enable Serial and wait for it to connect.
+  Serial.begin(115200);
+  while (!Serial) {}
 
   //init buttons
   //buttonInit(EmergencyStopBttnPtr, EmergencyStopBttnPin);
@@ -178,6 +188,8 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(JawController.HomeLimitSwitch.pinNumber), jawHomeLimSwISR, RISING);
 }
 
+
+
 void loop()
 {
   // put your main code here, to run repeatedly:
@@ -187,31 +199,59 @@ void loop()
     updateMotor(ArmControlPtr);
     updateMotor(JawControlPtr);
   }
-  else 
-  {
-  
+
+  updateSerial();
+}
+
+void updateSerial() {
+  if (Serial.available() > 0) {
+    // Parse the latest available character
+    int charToRead = Serial.read();
+    if (charToRead < 0) return;
+    String command = serialParser.parse(charToRead);
+    if (command != SerialParser::COMMAND_NONE) {
+      outputBuffer += command;
+      outputBuffer += " ";
+      if (command == SerialParser::QUERY_IS_READY) {
+          outputBuffer += "1";
+      }
+      else if (command == SerialParser::COMMAND_HAND_HOME) {
+        // set state to HOMING
+        // set isStopped true
+      } 
+      else if (command == SerialParser::COMMAND_HAND_WAVE) {
+        //set isStopped false
+      } 
+      else if (command == SerialParser::COMMAND_MOUTH_HOME) {
+        // set state to HOMING
+        // set isStopped true
+      } 
+      else if (command == SerialParser::COMMAND_MOUTH_TALK) {
+        // set state to HOMING
+        // set isStopped true
+      } 
+      else {
+        // Default case: Unknown command handling
+        outputBuffer += "?";
+      }
+      outputBuffer += "\n";
+    }
   }
-  //top level state machine
-  /*
-  switch(StateVar)
-  {
-    case INIT:
-      //Init
-      break;
 
-    case STBY:
-      //Standby, don't move
-      break;
+  // ensure that we do not drop bytes by only adding to the output queue if there is room.
+  int bufferSize = outputBuffer.length();
+  int availableSpace = Serial.availableForWrite();
 
-    case GOHOME:
-      //Home all Motors
-      break;
+  int bytesToSend = (bufferSize < availableSpace) ? bufferSize : availableSpace;
 
-    case HOME:
-      //Motors are at home;
-      break;
+  if (bytesToSend > 0) {
+      // String::substring(0, bytesToSend) gets the data to send
+      // We convert to c_str() to provide the pointer Serial.write needs
+      Serial.write(outputBuffer.c_str(), bytesToSend);
+
+      // Remove the sent bytes from the beginning of the String
+      outputBuffer.remove(0, bytesToSend);
   }
-  */
 }
 
 //here be ISR's
