@@ -29,7 +29,9 @@ class SerialParser {
                     return COMMAND_NONE;
                 }
             }
-            buffer += c;
+            if (c >= ' ' && c <= 'z') {
+                buffer += c;
+            }
             return COMMAND_NONE;
         };
 

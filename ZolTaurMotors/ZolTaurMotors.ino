@@ -38,7 +38,7 @@ volatile uint32_t intFlag = 0; //interrupt flags
 TopState StateVar;
 
 //Debug pin
-uint8_t debugPin = 20;
+uint8_t debugPin = 21;
 
 
 //Motors ///////////////////////
@@ -65,10 +65,10 @@ uint16_t armLimitDeciDeg = 300;
 StepperMotorPinNames JawMotorPins = { .directionPin = 5, .stepPin = 6, .chipSelectPin = 7};
 StepperMotorPinNames * JawPinsPtr = &JawMotorPins;
 //Jaw Speed
-uint16_t jawSpeed = 900;
+uint16_t jawSpeed = 400;
 uint16_t jawCurrent = 1800;
-uint16_t jawLimitDeciDeg = 300;
-MicroStepModeEnum JawStepEnum = MicroStep64;
+uint16_t jawLimitDeciDeg = 100;
+MicroStepModeEnum JawStepEnum = MicroStep128;
 
 // Serial Parser
 SerialParser serialParser;
@@ -103,9 +103,9 @@ StepperController * JawControlPtr = &JawController;
 
 //Input Pin numbers
 uint8_t  EmergencyStopBttnPin = 8;
-uint8_t  ArmHmLimSwPin = 9;
-uint8_t  ArmOpenLimSwPin = 10;
-uint8_t  JawHmLimSwPin = 11;
+//uint8_t  ArmHmLimSwPin = 20;
+uint8_t  ArmOpenLimSwPin = 19;
+uint8_t  JawHmLimSwPin = 18;
 
 
 //uint8_t ledPin = LED_BUILTIN;
@@ -133,6 +133,8 @@ void setup()
   //buttonInit(ArmOpenLimSwPtr, ArmOpenLimSwPin);
   //buttonInit(JawHomeLimSwPtr, JawHmLimSwPin);
 
+  pinMode(53, OUTPUT);
+
   //init motors
   //Set their CS Pins to low
   pinMode(ArmPinsPtr->chipSelectPin, OUTPUT);
@@ -147,7 +149,7 @@ void setup()
     ArmPinsPtr,
     StepModeEnum,
     Clockwise,
-    ArmHmLimSwPin,
+    ArmOpenLimSwPin,
     armCurrent,
     armSpeed,
     armLimitDeciDeg);
@@ -183,8 +185,8 @@ void setup()
 
   //attach interrupts
   //attachInterrupt(digitalPinToInterrupt(EmergencyStopBttn.pinNumber), emergencyStopBttnISR, RISING);
-  attachInterrupt(digitalPinToInterrupt(ArmController.HomeLimitSwitch.pinNumber), armHomeLimSwISR, RISING);
-  //attachInterrupt(digitalPinToInterrupt(ArmOpenLimitSwitch.pinNumber), armOpenLimSwISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(ArmController.HomeLimitSwitch.pinNumber), armOpenLimSwISR, RISING);
+  //attachInterrupt(digitalPinToInterrupt(ArmHmLimitSwitch.pinNumber), armOpenLimSwISR, RISING);
   attachInterrupt(digitalPinToInterrupt(JawController.HomeLimitSwitch.pinNumber), jawHomeLimSwISR, RISING);
 }
 
@@ -193,71 +195,74 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  //step(armMotorPtr);
-  if( digitalRead( debugPin ) )
-  {
-    updateMotor(ArmControlPtr);
-    updateMotor(JawControlPtr);
-  }
+  //step(JawControlPtr);
+  //if( digitalRead( debugPin ) )
+  //{
+  updateMotor(ArmControlPtr);
+  updateMotor(JawControlPtr);
+  //}
 
   updateSerial();
 }
 
 void updateSerial() {
   if (Serial.available() > 0) {
-    // Parse the latest available character
     int charToRead = Serial.read();
     if (charToRead < 0) return;
+
     String command = serialParser.parse(charToRead);
+
     if (command != SerialParser::COMMAND_NONE) {
-      outputBuffer += command;
-      outputBuffer += " ";
+      String response = "";
+      response += command;
+      response += " ";
+
+      // --- COMMAND: IS READY? ---
       if (command == SerialParser::QUERY_IS_READY) {
-          outputBuffer += "1";
+         // Return 1 only if both motors have successfully found their home position
+         if(ArmControlPtr->homeFound && JawControlPtr->homeFound) {
+             response += "1";
+         } else {
+             response += "0";
+         }
       }
+      
+      // --- COMMAND: HAND HOME (STOP WAVING) ---
       else if (command == SerialParser::COMMAND_HAND_HOME) {
-        // set state to HOMING
-        // set isStopped true
+        controllerDisable(ArmControlPtr);
+        controllerSetState(ArmControlPtr, M_HOMING);
       } 
+      
+      // --- COMMAND: HAND WAVE (START WAVING) ---
       else if (command == SerialParser::COMMAND_HAND_WAVE) {
-        //set isStopped false
+        controllerEnable(ArmControlPtr);
       } 
+      
+      // --- COMMAND: MOUTH HOME (STOP TALKING) ---
       else if (command == SerialParser::COMMAND_MOUTH_HOME) {
-        // set state to HOMING
-        // set isStopped true
+        controllerDisable(JawControlPtr);
+        controllerSetState(JawControlPtr, M_HOMING);
       } 
+      
+      // --- COMMAND: MOUTH TALK (START TALKING) ---
       else if (command == SerialParser::COMMAND_MOUTH_TALK) {
-        // set state to HOMING
-        // set isStopped true
+        controllerEnable(JawControlPtr);
       } 
+      
       else {
-        // Default case: Unknown command handling
-        outputBuffer += "?";
+        // Unknown command
+        response += "?";
       }
-      outputBuffer += "\n";
+      
+      response += '\n';
+      Serial.write(response.c_str(), response.length());
     }
   }
-
-  // ensure that we do not drop bytes by only adding to the output queue if there is room.
-  int bufferSize = outputBuffer.length();
-  int availableSpace = Serial.availableForWrite();
-
-  int bytesToSend = (bufferSize < availableSpace) ? bufferSize : availableSpace;
-
-  if (bytesToSend > 0) {
-      // String::substring(0, bytesToSend) gets the data to send
-      // We convert to c_str() to provide the pointer Serial.write needs
-      Serial.write(outputBuffer.c_str(), bytesToSend);
-
-      // Remove the sent bytes from the beginning of the String
-      outputBuffer.remove(0, bytesToSend);
-  }
 }
-
 //here be ISR's
 
 
-void armHomeLimSwISR()
+void armOpenLimSwISR()
 {
   ArmController.HomeLimitSwitch.active = true;
 }

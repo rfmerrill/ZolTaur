@@ -152,6 +152,8 @@ void controllerSetLimitAngle( StepperController * Controller, uint16_t angleLimi
   Controller->extendedLimDecidegrees = angleLimitDeciDegrees;
   uint8_t majorStep = angleLimitDeciDegrees / 18;
   uint8_t minorStep = (angleLimitDeciDegrees % 18 )*256/18;
+  Controller->extendedLimitRaw.posMajorStep = majorStep;
+  Controller->extendedLimitRaw.posMinorStep = minorStep;
 }
 
 //Init
@@ -233,6 +235,7 @@ bool controllerIsHome( StepperController * Controller )
       //debounce the switch
       if( debounce( &(Controller->HomeLimitSwitch) ) )
       {
+        Serial.println("Home found");
          isHome = true;
       }
    }
@@ -254,6 +257,7 @@ void controllerSetDirection( StepperController * Controller, DirectionNameEnum D
 
 void controllerSetState( StepperController * Controller, MotorStateEnum MotorState)
 {
+  Serial.println("Change state " + String(MotorState));
   Controller->MotorState = MotorState;
 }
 
