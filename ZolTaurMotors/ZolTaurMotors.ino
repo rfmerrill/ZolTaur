@@ -67,7 +67,7 @@ StepperMotorPinNames * JawPinsPtr = &JawMotorPins;
 //Jaw Speed
 uint16_t jawSpeed = 400;
 uint16_t jawCurrent = 1800;
-uint16_t jawLimitDeciDeg = 100;
+uint16_t jawLimitDeciDeg = 350;
 MicroStepModeEnum JawStepEnum = MicroStep128;
 
 // Serial Parser
@@ -218,6 +218,7 @@ void updateSerial() {
       response += " ";
 
       // --- COMMAND: IS READY? ---
+      // ?R
       if (command == SerialParser::QUERY_IS_READY) {
          // Return 1 only if both motors have successfully found their home position
          if(ArmControlPtr->homeFound && JawControlPtr->homeFound) {
@@ -228,23 +229,27 @@ void updateSerial() {
       }
       
       // --- COMMAND: HAND HOME (STOP WAVING) ---
+      // !HH
       else if (command == SerialParser::COMMAND_HAND_HOME) {
         controllerDisable(ArmControlPtr);
         controllerSetState(ArmControlPtr, M_HOMING);
       } 
       
       // --- COMMAND: HAND WAVE (START WAVING) ---
+      // !HW
       else if (command == SerialParser::COMMAND_HAND_WAVE) {
         controllerEnable(ArmControlPtr);
       } 
       
       // --- COMMAND: MOUTH HOME (STOP TALKING) ---
+      // !MH
       else if (command == SerialParser::COMMAND_MOUTH_HOME) {
         controllerDisable(JawControlPtr);
         controllerSetState(JawControlPtr, M_HOMING);
       } 
       
       // --- COMMAND: MOUTH TALK (START TALKING) ---
+      // !MW
       else if (command == SerialParser::COMMAND_MOUTH_TALK) {
         controllerEnable(JawControlPtr);
       } 
@@ -259,9 +264,8 @@ void updateSerial() {
     }
   }
 }
+
 //here be ISR's
-
-
 void armOpenLimSwISR()
 {
   ArmController.HomeLimitSwitch.active = true;

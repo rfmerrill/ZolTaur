@@ -1,6 +1,10 @@
 #ifndef SERIALCONTROLLER_H
 #define SERIALCONTROLLER_H
 
+/*
+ * Written By Nohi
+ */
+
 #include <string.h>
 
 class SerialParser {
