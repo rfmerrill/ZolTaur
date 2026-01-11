@@ -50,13 +50,13 @@ uint8_t debugPin = 21;
 StepperMotorPinNames ArmMotorPins = { .directionPin = 2, .stepPin = 3, .chipSelectPin = 4};
 StepperMotorPinNames * ArmPinsPtr = &ArmMotorPins;
 //Arm Microstepping Mode
-MicroStepModeEnum StepModeEnum = MicroStep64;
+MicroStepModeEnum StepModeEnum = MicroStep128;
 //Arm speed in tenths of a degree per second
-uint16_t armSpeed = 100;
+uint16_t armSpeed = 900;
 //Arm Per phase current
-uint16_t armCurrent = 1800;
+uint16_t armCurrent = 500;
 //Arm limit in deci degrees. 300 == 30 degrees
-uint16_t armLimitDeciDeg = 300;
+uint16_t armLimitDeciDeg = 200;
 
 //Declare Jaw Motor
 //StepperMotor jawMotor;
@@ -66,8 +66,8 @@ StepperMotorPinNames JawMotorPins = { .directionPin = 5, .stepPin = 6, .chipSele
 StepperMotorPinNames * JawPinsPtr = &JawMotorPins;
 //Jaw Speed
 uint16_t jawSpeed = 400;
-uint16_t jawCurrent = 1800;
-uint16_t jawLimitDeciDeg = 350;
+uint16_t jawCurrent = 500;
+uint16_t jawLimitDeciDeg = 250;
 MicroStepModeEnum JawStepEnum = MicroStep128;
 
 // Serial Parser
