@@ -34,9 +34,8 @@ typedef enum
   //wave, talk, wave2, etc
 }TopState; 
 
-volatile uint32_t intFlag = 0; //interrupt flags
+//volatile uint32_t intFlag = 0; //interrupt flags
 //Create the state variable for switch case later
-//uint8_t stateVar;
 TopState StateVar;
 
 //Debug pin
@@ -46,8 +45,6 @@ uint8_t debugPin = 21;
 //Motors ///////////////////////
 
 //Declare Arm Motor
-//StepperMotor armMotor;
-//StepperMotor * armMotorPtr = &armMotor;
 //Declare Arm Motor Pins
 StepperMotorPinNames_TMC2208 ArmMotorPins = { .directionPin = 2, .stepPin = 3, };
 StepperMotorPinNames_TMC2208 * ArmPinsPtr = &ArmMotorPins;
@@ -61,8 +58,6 @@ uint16_t armCurrent = 500;
 uint16_t armLimitDeciDeg = 200;
 
 //Declare Jaw Motor
-//StepperMotor jawMotor;
-//StepperMotor * jawMotorPtr = &jawMotor;
 //Declare Jaw motor pins
 StepperMotorPinNames_TMC2208 JawMotorPins = { .directionPin = 5, .stepPin = 6, };
 StepperMotorPinNames_TMC2208 * JawPinsPtr = &JawMotorPins;
@@ -87,17 +82,7 @@ StepperController_TMC2208 * JawControlPtr = &JawController;
 
 //Buttons //////////////////////
 
-//Button ArmHomeLimitSwitch, ArmOpenLimitSwitch; //arm limit switches
-//Button JawHomeLimitSwitch;
-//Button EmergencyStopBttn; // eStopState
-//Button Pointers
-//Note Compiler refuses to let me declare multiple pointers of a type button *a,*b,*c etc
-// and set them later, so I have to set them as I create them
-//Makes things more readable later
-//Button *EmergencyStopBttnPtr = &EmergencyStopBttn;
-//Button *ArmHomeLimSwPtr = &ArmHomeLimitSwitch;
-//Button *ArmOpenLimSwPtr = &ArmOpenLimitSwitch;
-//Button *JawHomeLimSwPtr = &JawHomeLimitSwitch;
+
 
 
 
@@ -129,22 +114,14 @@ void setup()
   Serial.begin(115200);
   while (!Serial) {}
 
-  //init buttons
-  //buttonInit(EmergencyStopBttnPtr, EmergencyStopBttnPin);
-  //buttonInit(ArmHomeLimSwPtr, ArmHmLimSwPin);
-  //buttonInit(ArmOpenLimSwPtr, ArmOpenLimSwPin);
-  //buttonInit(JawHomeLimSwPtr, JawHmLimSwPin);
-
+  
+  //What is this pin for?
   pinMode(53, OUTPUT);
 
-  //init motors
-  //Set their CS Pins to low
-  //pinMode(ArmPinsPtr->chipSelectPin, OUTPUT);
-  //digitalWrite(ArmPinsPtr->chipSelectPin, LOW);
-  //pinMode(JawPinsPtr->chipSelectPin, OUTPUT);
-  //digitalWrite(JawPinsPtr->chipSelectPin, LOW);
+  
+  
 
-//Init Motor Controllers:
+  //Init Motor Controllers:
   //Arm
   stepperControllerInit_TMC2208(
     ArmControlPtr,
@@ -166,25 +143,6 @@ void setup()
     jawSpeed,
     jawLimitDeciDeg);
 
-  //arm
-  /*
-  stepperMotorInit(
-    armMotorPtr,
-    armPinsPtr,
-    armCurrent,
-    armSpeed,
-    armStepEnum,
-    AntiClockwise);
-  //jaw
-  stepperMotorInit(
-    jawMotorPtr,
-    jawPinsPtr,
-    jawCurrent,
-    jawSpeed,
-    jawStepEnum,
-    AntiClockwise);
-*/
-
   //attach interrupts
   //attachInterrupt(digitalPinToInterrupt(EmergencyStopBttn.pinNumber), emergencyStopBttnISR, RISING);
   attachInterrupt(digitalPinToInterrupt(ArmController.HomeLimitSwitch.pinNumber), armOpenLimSwISR, RISING);
@@ -193,17 +151,12 @@ void setup()
 }
 
 
-
+// put your main code here, to run repeatedly:
 void loop()
 {
-  // put your main code here, to run repeatedly:
-  //step(JawControlPtr);
-  //if( digitalRead( debugPin ) )
-  //{
   updateMotor_TMC2208(ArmControlPtr);
   updateMotor_TMC2208(JawControlPtr);
-  //}
-
+  
   updateSerial();
 }
 
@@ -272,7 +225,6 @@ void armOpenLimSwISR()
 {
   ArmController.HomeLimitSwitch.active = true;
 }
-
 
 void jawHomeLimSwISR()
 {
