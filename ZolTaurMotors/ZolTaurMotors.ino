@@ -12,8 +12,10 @@
 #include <SPI.h>
 #include "SerialController.h"
 #include <string.h>
-#include "StepperMotorLib.h"
-#include "StepperControllerLib.h"
+//#include "StepperMotorLib.h"
+//#include "StepperControllerLib.h"
+#include "StepperMotorLib_TMC2208.h"
+#include "StepperControllerLib_TMC2208.h"
 #include "Button.h"
 
 // State Stuff ///////////////////
@@ -47,10 +49,10 @@ uint8_t debugPin = 21;
 //StepperMotor armMotor;
 //StepperMotor * armMotorPtr = &armMotor;
 //Declare Arm Motor Pins
-StepperMotorPinNames ArmMotorPins = { .directionPin = 2, .stepPin = 3, .chipSelectPin = 4};
-StepperMotorPinNames * ArmPinsPtr = &ArmMotorPins;
+StepperMotorPinNames_TMC2208 ArmMotorPins = { .directionPin = 2, .stepPin = 3, };
+StepperMotorPinNames_TMC2208 * ArmPinsPtr = &ArmMotorPins;
 //Arm Microstepping Mode
-MicroStepModeEnum StepModeEnum = MicroStep128;
+MicroStepModeEnum_TMC2208 StepModeEnum = MicroStep8_TMC2208;
 //Arm speed in tenths of a degree per second
 uint16_t armSpeed = 900;
 //Arm Per phase current
@@ -62,13 +64,13 @@ uint16_t armLimitDeciDeg = 200;
 //StepperMotor jawMotor;
 //StepperMotor * jawMotorPtr = &jawMotor;
 //Declare Jaw motor pins
-StepperMotorPinNames JawMotorPins = { .directionPin = 5, .stepPin = 6, .chipSelectPin = 7};
-StepperMotorPinNames * JawPinsPtr = &JawMotorPins;
+StepperMotorPinNames_TMC2208 JawMotorPins = { .directionPin = 5, .stepPin = 6, };
+StepperMotorPinNames_TMC2208 * JawPinsPtr = &JawMotorPins;
 //Jaw Speed
 uint16_t jawSpeed = 400;
 uint16_t jawCurrent = 500;
 uint16_t jawLimitDeciDeg = 250;
-MicroStepModeEnum JawStepEnum = MicroStep128;
+MicroStepModeEnum_TMC2208 JawStepEnum = MicroStep8_TMC2208;
 
 // Serial Parser
 SerialParser serialParser;
@@ -76,12 +78,12 @@ String outputBuffer;
 
 //Declare Motor Controller
 //Arm
-StepperController ArmController;
-StepperController * ArmControlPtr = &ArmController;
+StepperController_TMC2208 ArmController;
+StepperController_TMC2208 * ArmControlPtr = &ArmController;
 
 //Jaw
-StepperController JawController;
-StepperController * JawControlPtr = &JawController;
+StepperController_TMC2208 JawController;
+StepperController_TMC2208 * JawControlPtr = &JawController;
 
 //Buttons //////////////////////
 
@@ -137,30 +139,30 @@ void setup()
 
   //init motors
   //Set their CS Pins to low
-  pinMode(ArmPinsPtr->chipSelectPin, OUTPUT);
-  digitalWrite(ArmPinsPtr->chipSelectPin, LOW);
-  pinMode(JawPinsPtr->chipSelectPin, OUTPUT);
-  digitalWrite(JawPinsPtr->chipSelectPin, LOW);
+  //pinMode(ArmPinsPtr->chipSelectPin, OUTPUT);
+  //digitalWrite(ArmPinsPtr->chipSelectPin, LOW);
+  //pinMode(JawPinsPtr->chipSelectPin, OUTPUT);
+  //digitalWrite(JawPinsPtr->chipSelectPin, LOW);
 
 //Init Motor Controllers:
   //Arm
-  stepperControllerInit(
+  stepperControllerInit_TMC2208(
     ArmControlPtr,
     ArmPinsPtr,
     StepModeEnum,
-    Clockwise,
+    Clockwise_TMC2208,
     ArmOpenLimSwPin,
-    armCurrent,
+    //armCurrent,
     armSpeed,
     armLimitDeciDeg);
   //Jaw
-  stepperControllerInit(
+  stepperControllerInit_TMC2208(
     JawControlPtr,
     JawPinsPtr,
     StepModeEnum,
-    AntiClockwise,
+    AntiClockwise_TMC2208,
     JawHmLimSwPin,
-    jawCurrent,
+    //jawCurrent,
     jawSpeed,
     jawLimitDeciDeg);
 
@@ -198,8 +200,8 @@ void loop()
   //step(JawControlPtr);
   //if( digitalRead( debugPin ) )
   //{
-  updateMotor(ArmControlPtr);
-  updateMotor(JawControlPtr);
+  updateMotor_TMC2208(ArmControlPtr);
+  updateMotor_TMC2208(JawControlPtr);
   //}
 
   updateSerial();
@@ -231,27 +233,27 @@ void updateSerial() {
       // --- COMMAND: HAND HOME (STOP WAVING) ---
       // !HH
       else if (command == SerialParser::COMMAND_HAND_HOME) {
-        controllerDisable(ArmControlPtr);
-        controllerSetState(ArmControlPtr, M_HOMING);
+        controllerDisable_TMC2208(ArmControlPtr);
+        controllerSetState_TMC2208(ArmControlPtr, M_HOMING_TMC2208);
       } 
       
       // --- COMMAND: HAND WAVE (START WAVING) ---
       // !HW
       else if (command == SerialParser::COMMAND_HAND_WAVE) {
-        controllerEnable(ArmControlPtr);
+        controllerEnable_TMC2208(ArmControlPtr);
       } 
       
       // --- COMMAND: MOUTH HOME (STOP TALKING) ---
       // !MH
       else if (command == SerialParser::COMMAND_MOUTH_HOME) {
-        controllerDisable(JawControlPtr);
-        controllerSetState(JawControlPtr, M_HOMING);
+        controllerDisable_TMC2208(JawControlPtr);
+        controllerSetState_TMC2208(JawControlPtr, M_HOMING_TMC2208);
       } 
       
       // --- COMMAND: MOUTH TALK (START TALKING) ---
       // !MW
       else if (command == SerialParser::COMMAND_MOUTH_TALK) {
-        controllerEnable(JawControlPtr);
+        controllerEnable_TMC2208(JawControlPtr);
       } 
       
       else {
