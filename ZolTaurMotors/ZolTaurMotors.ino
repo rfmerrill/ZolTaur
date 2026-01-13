@@ -51,9 +51,9 @@ StepperMotorPinNames_TMC2208 * ArmPinsPtr = &ArmMotorPins;
 //Arm Microstepping Mode
 MicroStepModeEnum_TMC2208 StepModeEnum = MicroStep8_TMC2208;
 //Arm speed in tenths of a degree per second
-uint16_t armSpeed = 900;
+uint16_t armSpeed = 200;
 //Arm Per phase current
-uint16_t armCurrent = 500;
+//uint16_t armCurrent = 500;
 //Arm limit in deci degrees. 300 == 30 degrees
 uint16_t armLimitDeciDeg = 200;
 
@@ -62,9 +62,12 @@ uint16_t armLimitDeciDeg = 200;
 StepperMotorPinNames_TMC2208 JawMotorPins = { .directionPin = 5, .stepPin = 6, };
 StepperMotorPinNames_TMC2208 * JawPinsPtr = &JawMotorPins;
 //Jaw Speed
-uint16_t jawSpeed = 400;
-uint16_t jawCurrent = 500;
-uint16_t jawLimitDeciDeg = 250;
+uint16_t jawSpeed = 200;
+//uint16_t jawCurrent = 500;
+//Jaw home angle is how far from home the position target is set to. 
+//The goal is to get close to home without setting off the limit switch
+uint16_t jawHomeAngle = 25;
+uint16_t jawLimitDeciDeg = 200;
 MicroStepModeEnum_TMC2208 JawStepEnum = MicroStep8_TMC2208;
 
 // Serial Parser
@@ -143,6 +146,11 @@ void setup()
     jawSpeed,
     jawLimitDeciDeg);
 
+  //set isJaw on the jaw motor to true
+  setIsJaw_TMC2208(JawControlPtr, true);
+  //set target angle on Jaw to be near 0
+  controllerSetTargetAngle_TMC2208( JawControlPtr, jawTargetAngle);
+
   //attach interrupts
   //attachInterrupt(digitalPinToInterrupt(EmergencyStopBttn.pinNumber), emergencyStopBttnISR, RISING);
   attachInterrupt(digitalPinToInterrupt(ArmController.HomeLimitSwitch.pinNumber), armOpenLimSwISR, RISING);
@@ -176,7 +184,7 @@ void updateSerial() {
       // ?R
       if (command == SerialParser::QUERY_IS_READY) {
          // Return 1 only if both motors have successfully found their home position
-         if(ArmControlPtr->homeFound && JawControlPtr->homeFound) {
+         if(ArmControlPtr->homeFound && JawControlPtr->limitFound ) {
              response += "1";
          } else {
              response += "0";

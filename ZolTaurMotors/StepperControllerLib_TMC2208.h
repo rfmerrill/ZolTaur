@@ -93,16 +93,25 @@ typedef struct
 {
   //toggles true when the home limitSwitch is found
   bool homeFound = false;
+  //true when the target position has been found for the first time
+  bool limitFound = false;
   //is true when the limit switch is pressed
   bool isHome;
   //is true when the position is at the software limit
   bool isAtLimit = false;
+  bool isAtTarget = false;
   //isStopped
   bool isStopped = true;
+
+  //hacky isJaw bool for separate pattern for Jaw
+  bool isJaw = false;
+
   //Position Struct
   MotorPosition_TMC2208 Position;
+  //Target Position in Decidegrees
+  uint16_t targetDecidegrees;
   //Target Position for the motor to go to
-  MotorPosition_TMC2208 Target;
+  MotorPosition_TMC2208 targetPosition;
   //Software limit for the maximum extension of the motor unit is decidegrees
   uint16_t extendedLimDecidegrees;
   //Software Limit but in steps and microsteps
@@ -121,6 +130,12 @@ typedef struct
   DirectionNameEnum_TMC2208 Direction;
   MotorStateEnum_TMC2208 MotorState = M_INIT_TMC2208;
 }StepperController_TMC2208;
+
+//hacky method for setting the jaw flag
+void setIsJaw_TMC2208(StepperController_TMC2208 * Controller, bool setting)
+{
+  Controller->isJaw = setting;
+}
 
 //Sets the microstepping mode
 //Cannot be run before Motor Init!
@@ -154,6 +169,16 @@ void controllerSetLimitAngle_TMC2208( StepperController_TMC2208 * Controller, ui
   uint8_t minorStep = (angleLimitDeciDegrees % 18 )*256/18;
   Controller->extendedLimitRaw.posMajorStep = majorStep;
   Controller->extendedLimitRaw.posMinorStep = minorStep;
+}
+
+//Sets the Target Position
+void controllerSetTargetAngle_TMC2208( StepperController_TMC2208 * Controller, uint16_t angleTargetDeciDegrees )
+{
+  Controller->targetDecidegrees = angleTargetDeciDegrees;
+  uint8_t majorStep = angleTargetDeciDegrees / 18;
+  uint8_t minorStep = (angleTargetDeciDegrees % 18 )*256/18;
+  Controller->targetPosition.posMajorStep = majorStep;
+  Controller->targetPosition.posMinorStep = minorStep;
 }
 
 //Init
@@ -235,8 +260,8 @@ bool controllerIsHome_TMC2208( StepperController_TMC2208 * Controller )
       //debounce the switch
       if( debounce( &(Controller->HomeLimitSwitch) ) )
       {
-        Serial.println("Home found");
-         isHome = true;
+        //Serial.println("Home found");
+        isHome = true;
       }
    }
    return isHome;
@@ -257,7 +282,7 @@ void controllerSetDirection_TMC2208( StepperController_TMC2208 * Controller, Dir
 
 void controllerSetState_TMC2208( StepperController_TMC2208 * Controller, MotorStateEnum_TMC2208 MotorState)
 {
-  Serial.println("Change state " + String(MotorState));
+  //Serial.println("Change state " + String(MotorState));
   Controller->MotorState = MotorState;
 }
 
@@ -344,6 +369,19 @@ uint16_t controllerGetPositionDeciDeg_TMC2208( StepperController_TMC2208 * Contr
   return positionMajor+positionMinor;
 }
 
+//both being at and past the target returns true
+bool controllerIsAtTarget_TMC2208( StepperController_TMC2208 * Controller)
+{
+  if( compareMotorPosition_TMC2208( &( Controller->Position ), &( Controller->targetPosition) ) == 0 )
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
 //IsAtLimit
 bool controllerIsAtLimit_TMC2208( StepperController_TMC2208 * Controller)
 {
@@ -351,8 +389,10 @@ bool controllerIsAtLimit_TMC2208( StepperController_TMC2208 * Controller)
   MotorPosition_TMC2208 * limPtr = &( Controller->extendedLimitRaw );
   if( compareMotorPosition_TMC2208(posPtr, limPtr) >= 0 )
   {
+    Controller->isAtLimit = true;
     return true;
   }
+  Controller->isAtLimit = false;
   return false;
 }
 
@@ -365,92 +405,222 @@ bool controllerIsAtLimit_TMC2208( StepperController_TMC2208 * Controller)
 //Statemachine for motor position
 void updateMotor_TMC2208(StepperController_TMC2208 * Controller)
 {
-  switch( Controller->MotorState)
+  //Use normal wave update if the jaw setting is false
+  if(Controller->isJaw == false)
   {
-    //Start Up State
-    case M_INIT_TMC2208:
-      //If At home, set Zero, Direction to clockwise to extend, and setstate to home
-      if( controllerIsHome_TMC2208( Controller ) )
-      {
-        controllerSetZero_TMC2208( Controller );
-        controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
-        controllerSetState_TMC2208( Controller, M_HOME_TMC2208);
-      }
-      else // else step the controller towards where home should be
-      {
-        controllerStep_TMC2208( Controller );
-      }
-      break;
+    switch( Controller->MotorState)
+    {
+      //Start Up State
+      case M_INIT_TMC2208:
+        //If At home, set Zero, Direction to clockwise to extend, and setstate to home
+        if( controllerIsHome_TMC2208( Controller ) )
+        {
+          controllerSetZero_TMC2208( Controller );
+          controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+          controllerSetState_TMC2208( Controller, M_HOME_TMC2208);
+        }
+        else // else step the controller towards where home should be
+        {
+          controllerStep_TMC2208( Controller );
+        }
+        break;
 
-    case M_HOME_TMC2208:
-      //If isStopped is false then the motor does things
-      if(!Controller->isStopped)
-      {
+      case M_HOME_TMC2208:
+        //If isStopped is false then the motor does things
+        if(!Controller->isStopped)
+        {
+          controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+          controllerSetState_TMC2208( Controller, M_EXTENDING_TMC2208);
+          break;
+        }
+        else
+        {
+          break;
+        }
+
+      case M_HOMING_TMC2208:
+        //If At home, set Zero, Direction to clockwise to extend, and setstate to home
+        if(controllerIsHome_TMC2208(Controller))
+        {
+          controllerSetZero_TMC2208( Controller );
+          controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+          controllerSetState_TMC2208( Controller, M_HOME_TMC2208);
+        }
+        else // else step the controller towards where home should be
+        {
+          controllerStep_TMC2208( Controller );
+        }
+        break;
+
+      //Increment towards extended position
+      case M_EXTENDING_TMC2208:
+        if( controllerIsAtLimit_TMC2208( Controller ) )
+        {
+          controllerSetState_TMC2208( Controller, M_EXTENDED_TMC2208 );
+          break;
+        }
+        else
+        {
+          controllerStep_TMC2208( Controller );
+          break;
+        }
+
+      //At Extended Position
+      case M_EXTENDED_TMC2208:
+        controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+        controllerSetState_TMC2208( Controller, M_HOMING_TMC2208 );
+        break;
+
+      //Heading To Position
+      case M_GOING_TO_TMC2208:
+        switch( compareMotorPosition_TMC2208( &( Controller->Position ), &( Controller->targetPosition ) ) )
+        {
+          //If Positions are equal then go to M_AT_POSITION
+          case 0:
+            controllerSetState_TMC2208( Controller, M_AT_POSITION_TMC2208 );
+            break;
+          //If motor Position is above  Target
+          case 1:
+            controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+            controllerStep_TMC2208( Controller );
+            break;
+          //If motor Position is below Target
+          case -1:
+            controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+            controllerStep_TMC2208( Controller );
+            break;
+        }
+        break;
+
+      case M_AT_POSITION_TMC2208:
+        break;
+    }
+  }
+  /*
+   * If Jaw setting is true then the motor operation is different:
+   * 
+   */
+  else
+  {
+    static bool inited = false;
+    switch( Controller->MotorState)
+    {
+      //Start Up State
+      case M_INIT_TMC2208:
+        //If At home, set Zero, Direction to clockwise to extend, and setstate to home
+        if(inited == false)
+        {
+          if( controllerIsHome_TMC2208( Controller ) )
+          {
+            controllerSetZero_TMC2208( Controller );
+            controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+            //controllerSetState_TMC2208( Controller, M_HOME_TMC2208);
+            //set inited to tru for init pt2
+            inited = true;
+          }
+          else // else step the controller towards where home should be
+          {
+            controllerStep_TMC2208( Controller );
+          }
+          break;
+        }
+
+        //if inited is true then move on to pt2 of init for Jaw, go to target
+        else
+        {
+          //check if we're at target (closed) position, once there set state to standby
+          if( controllerIsAtLimit_TMC2208( Controller ) )
+          {
+            //setstate controller at position
+            controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+            //standby for Jaw is at Extended
+            controllerSetState_TMC2208( Controller, M_EXTENDED_TMC2208 );
+            Controller->limitFound = true;
+          }
+          else
+          {
+            controllerStep_TMC2208( Controller );
+          }
+          break;
+        }
+
+
+      case M_HOME_TMC2208:
+        //if we hit home, proceed towards the extending direction
         controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
         controllerSetState_TMC2208( Controller, M_EXTENDING_TMC2208);
         break;
-      }
-      else
-      {
+
+      case M_HOMING_TMC2208:
+        //Since we're not using homing for Jaw, set state to M_GOING_TO_TMC2208
+        // (target is near home)
+        controllerSetDirection_TMC2208( Controller, Controller->HomingDirection);
+        controllerSetState_TMC2208( Controller, M_GOING_TO_TMC2208 );
         break;
-      }
 
-    case M_HOMING_TMC2208:
-      //If At home, set Zero, Direction to clockwise to extend, and setstate to home
-      if(controllerIsHome_TMC2208(Controller))
-      {
-        controllerSetZero_TMC2208( Controller );
-        controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
-        controllerSetState_TMC2208( Controller, M_HOME_TMC2208);
-      }
-      else // else step the controller towards where home should be
-      {
-        controllerStep_TMC2208( Controller );
-      }
-      break;
-
-    //Increment towards extended position
-    case M_EXTENDING_TMC2208:
-      if( controllerIsAtLimit_TMC2208( Controller ) )
-      {
-        controllerSetState_TMC2208( Controller, M_EXTENDED_TMC2208 );
-        break;
-      }
-      else
-      {
-        controllerStep_TMC2208( Controller );
-        break;
-      }
-
-    //At Extended Position
-    case M_EXTENDED_TMC2208:
-      controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
-      controllerSetState_TMC2208( Controller, M_HOMING_TMC2208 );
-      break;
-
-    //Heading To Position
-    case M_GOING_TO_TMC2208:
-      switch( compareMotorPosition_TMC2208( &( Controller->Position ), &( Controller->Target ) ) )
-      {
-        //If Positions are equal then go to M_AT_POSITION
-        case 0:
-          controllerSetState_TMC2208( Controller, M_AT_POSITION_TMC2208 );
+      //Increment towards extended position
+      case M_EXTENDING_TMC2208:
+        if( controllerIsAtLimit_TMC2208( Controller ) )
+        {
+          controllerSetState_TMC2208( Controller, M_EXTENDED_TMC2208 );
           break;
-        //If motor Position is above  Target
-        case 1:
+        }
+        else
+        {
+          controllerStep_TMC2208( Controller );
+          break;
+        }
+        break;
+
+      //At Extended Position
+      case M_EXTENDED_TMC2208:
+        /* controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+        controllerSetState_TMC2208( Controller, M_HOMING_TMC2208 ); */
+        //stopped position for Jaw, if isStopped is false then proceed to going torwards target position
+        if( Controller->isStopped == false )
+        {
           controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
-          controllerStep_TMC2208( Controller );
-          break;
-        //If motor Position is below Target
-        case -1:
-          controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
-          controllerStep_TMC2208( Controller );
-          break;
-      }
-      break;
+          controllerSetState_TMC2208( Controller, M_GOING_TO_TMC2208 );
+        }
+        break;
 
-    case M_AT_POSITION_TMC2208:
-      break;
+      //Heading To Position
+      case M_GOING_TO_TMC2208:
+
+        //In case we hit home
+        if( controllerIsHome_TMC2208( Controller ))
+        {
+          controllerSetZero_TMC2208( Controller );
+          controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+          controllerSetState_TMC2208( Controller, M_HOME_TMC2208);
+          break;
+        }
+        //Else compare motor position and target position
+        switch( compareMotorPosition_TMC2208( &( Controller->Position ), &( Controller->targetPosition ) ) )
+        {
+          //If Positions are equal then go to M_AT_POSITION
+          case 0:
+            controllerSetState_TMC2208( Controller, M_AT_POSITION_TMC2208 );
+            break;
+          //If motor Position is above  Target
+          case 1:
+            controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+            controllerStep_TMC2208( Controller );
+            break;
+          //If motor Position is below Target
+          case -1:
+            controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection );
+            controllerStep_TMC2208( Controller );
+            break;
+        }
+        break;
+
+      case M_AT_POSITION_TMC2208:
+        //at position set state towards extended and proceed to the extending state
+        controllerSetDirection_TMC2208( Controller, Controller->ExtendingDirection);
+        controllerSetState_TMC2208( Controller, M_EXTENDING_TMC2208);
+        break;
+    }
   }
 }
 
