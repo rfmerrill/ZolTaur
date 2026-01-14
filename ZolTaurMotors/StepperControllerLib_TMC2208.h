@@ -583,8 +583,8 @@ void updateMotor_TMC2208(StepperController_TMC2208 * Controller)
         
         if( Controller->isStopped == false )
         {
-          //controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
           //Head towards the target (we're trying to avoid hitting the home limit switch)
+          controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
           controllerSetState_TMC2208( Controller, M_GOING_TO_TMC2208 );
         }
         break;
@@ -605,6 +605,7 @@ void updateMotor_TMC2208(StepperController_TMC2208 * Controller)
         {
           //If Positions are equal then go to M_AT_POSITION
           case 0:
+            
             controllerSetState_TMC2208( Controller, M_AT_POSITION_TMC2208 );
             break;
           //If motor Position is above  Target
