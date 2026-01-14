@@ -528,12 +528,13 @@ void updateMotor_TMC2208(StepperController_TMC2208 * Controller)
         //if inited is true then move on to pt2 of init for Jaw, go to target
         else
         {
-          //check if we're at target (closed) position, once there set state to standby
+          //check if we're at limit (closed&extended) position, once there set state to standby
           if( controllerIsAtLimit_TMC2208( Controller ) )
           {
-            //setstate controller at position
+            //Serial.println("Lim_Found");
+            //tell motor to go towards home
             controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
-            //standby for Jaw is at Extended
+            //change state to the standby state (jaw closed (motor extended) )
             controllerSetState_TMC2208( Controller, M_EXTENDED_TMC2208 );
             Controller->limitFound = true;
           }
@@ -562,6 +563,8 @@ void updateMotor_TMC2208(StepperController_TMC2208 * Controller)
       case M_EXTENDING_TMC2208:
         if( controllerIsAtLimit_TMC2208( Controller ) )
         {
+          Serial.println("Lim Found again");
+          controllerSetDirection_TMC2208( Controller, Controller->HomingDirection);
           controllerSetState_TMC2208( Controller, M_EXTENDED_TMC2208 );
           break;
         }
@@ -577,9 +580,11 @@ void updateMotor_TMC2208(StepperController_TMC2208 * Controller)
         /* controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
         controllerSetState_TMC2208( Controller, M_HOMING_TMC2208 ); */
         //stopped position for Jaw, if isStopped is false then proceed to going torwards target position
+        
         if( Controller->isStopped == false )
         {
-          controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+          //controllerSetDirection_TMC2208( Controller, Controller->HomingDirection );
+          //Head towards the target (we're trying to avoid hitting the home limit switch)
           controllerSetState_TMC2208( Controller, M_GOING_TO_TMC2208 );
         }
         break;
