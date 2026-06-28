@@ -33,26 +33,23 @@ constexpr unsigned int armSpeedMicrostepsPerSecond = (armSpeedDeciDegPerSec * in
 static_assert(armSpeedMicrostepsPerSecond == 133);
 
 //Jaw Speed
-constexpr int jawSpeedDeciDegPerSec = 50;
-constexpr int jawMoveDeciDeg = 200;
+constexpr int jawSpeedDeciDegPerSec = 250;
+constexpr int jawMoveDeciDeg = 900; // Movement arc for each normal back-and-forth
+constexpr int jawExtraLimitMoveDeciDeg = 150; // Extra movement away from limit to avoid hitting it again
 constexpr int jawStepsPerRevolution = 200;
 constexpr int jawMicrostepsPerStep = 8;
 constexpr int kJawLimitWaitTimeMs = 300;
 
 // BasicStepperDriver library takes float RPM for speed. We match that.
 constexpr float jawSpeedRevsPerMin = (jawSpeedDeciDegPerSec * 60.0) / 3600.0;
-static_assert(jawSpeedRevsPerMin == 0.83333333333);
+static_assert(jawSpeedRevsPerMin == 4.166666666666667);
 
 //Jaw home angle is how far from home the position target is set to. 
 //The goal is to get close to home without setting off the limit switch
 constexpr int jawHomeAngle = 25;
 // Set this to either 1 or -1
-constexpr bool jawDirectionAwayFromLimit = 1;
-
-//Input Pin numbers
-constexpr uint8_t EmergencyStopBttnPin = 19;
-constexpr uint8_t JawHmLimSwPin = 18;
-
+constexpr int jawDirectionAwayFromLimit = 1;
+constexpr int jawDirectionTowardsLimit = -jawDirectionAwayFromLimit;
 
 constexpr uint8_t kArmDirPin = 8;
 // Pin 9 is OC2A so we could use timer compare out
@@ -63,7 +60,7 @@ constexpr uint8_t kArmSleepPin = 10;
 constexpr uint8_t kJawDirPin = 11;
 constexpr uint8_t kJawStepPin = 12;
 constexpr uint8_t kJawSleepPin = 13;
-constexpr uint8_t kJawLimitSwitchPin = 2;
+constexpr uint8_t kJawLimitSwitchPin = 3;
 
 // Serial Parser
 SerialParser serialParser;
@@ -74,8 +71,11 @@ BasicStepperDriver jawStepper(jawStepsPerRevolution, kJawDirPin, kJawStepPin, kJ
 
 // Did we see a falling edge on the limit switch?
 volatile bool jawLimitHit = false;
+bool jawRunning = false;
+bool jawRequested = false;
+int jawDirection = jawDirectionTowardsLimit;
+bool jawDoRestartMove = false;
 
-volatile bool jawRunning = false;
 volatile bool armRunning = false;
 }
 
@@ -112,9 +112,11 @@ void setup()
   // STEP state doesn't matter.
 
   //attach interrupts
-  attachInterrupt(digitalPinToInterrupt(kJawLimitSwitchPin), jawHomeLimSwISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(kJawLimitSwitchPin), jawHomeLimSwISR, FALLING);
 
   jawStepper.begin(jawSpeedRevsPerMin, jawMicrostepsPerStep);
+
+  initJawStepper();
 }
 
 // put your main code here, to run repeatedly:
@@ -125,42 +127,85 @@ void loop()
   updateSerial();
 }
 
+inline bool isLimitSwitchClosed() {
+  return digitalRead(kJawLimitSwitchPin) == LOW;
+}
+
+void initJawStepper() {
+  jawDirection = jawDirectionTowardsLimit;
+  jawRunning = true;
+
+  if(isLimitSwitchClosed()) {
+    // we're already sitting on the limit switch
+    jawLimitHit = true;
+  } else {
+    // Intentionally hit limit to home
+    long movement_deci_deg = jawMoveDeciDeg * 2;
+    long steps = jawStepper.calcStepsForRotation(jawDirection * movement_deci_deg) / 10;
+    jawStepper.startMove(steps);
+  }
+}
 
 void updateJawStepper() {
-  static int direction = 1;
-  static bool do_restart_move = true;
   unsigned long wait_until = 0;
+  static long movement_deci_deg = jawMoveDeciDeg;
+
+  if (!jawRunning) {
+    if (!jawRequested) {
+      return;
+    } else {
+      // Start of requested move. Assume we are home.
+      jawDirection = jawDirectionAwayFromLimit;
+      jawDoRestartMove = true;
+
+      // Normally we care about limit switch edges.
+      // however, if we were not running, then this value
+      // may be stale.
+      jawLimitHit = isLimitSwitchClosed();
+    }
+  }
+
+  jawRunning = true;
 
   if (jawLimitHit) {
     // TODO: which direction is away from the limit switch?
-    direction = jawDirectionAwayFromLimit;
+    jawDirection = jawDirectionAwayFromLimit;
     wait_until = millis() + kJawLimitWaitTimeMs;
     // This will probably get activated more than once due to bounce, just
     // need to make sure we don't start moving until it settles.
     jawLimitHit = false;
+    movement_deci_deg += jawExtraLimitMoveDeciDeg;
+    jawDoRestartMove = true;
   } else if (wait_until > millis()) {
     // pass
-  } else if (do_restart_move) {
-    do_restart_move = false;
+  } else if (jawDoRestartMove) {
+    jawDoRestartMove = false;
     // Rather than use the float version of this function, pass it
     // decidegrees and then divide by 10 after.
     // Also, don't actually multiply by direction--compiler is too dumb to
     // know it's always 1 or -1.
     long steps;
-    if (direction > 0) {
-      steps = jawStepper.calcStepsForRotation(long{jawMoveDeciDeg}) / 10;
+    if (jawDirection > 0) {
+      steps = jawStepper.calcStepsForRotation(movement_deci_deg) / 10;
     } else {
-      steps = jawStepper.calcStepsForRotation(long{-jawMoveDeciDeg}) / 10;
+      steps = jawStepper.calcStepsForRotation(-movement_deci_deg) / 10;
     }
     jawStepper.startMove(steps);
   } else {
     // run the next action and see if the commanded movement is done
-    bool moveDone = jawStepper.nextAction();
+    bool moveDone = (jawStepper.nextAction() == 0);
     if (moveDone) {
-      // switch directions
-      direction = -direction;
-      // start a new move
-      do_restart_move = true;
+      if (!jawRequested && jawDirection == jawDirectionTowardsLimit) {
+        // we were moving towards limit and ended without hitting it.
+        // We are home!
+        jawRunning = false;
+      } else {
+        // switch directions
+        jawDirection = -jawDirection;
+        // start a new move
+        jawDoRestartMove = true;
+        movement_deci_deg = jawMoveDeciDeg;
+      }
     }
   }
 }
@@ -209,11 +254,13 @@ void updateSerial() {
       // --- COMMAND: MOUTH HOME (STOP TALKING) ---
       // !MH
       else if (command == SerialParser::COMMAND_MOUTH_HOME) {
+        jawRequested = false;
       } 
       
       // --- COMMAND: MOUTH TALK (START TALKING) ---
       // !MW
       else if (command == SerialParser::COMMAND_MOUTH_TALK) {
+        jawRequested = true;
       } 
       
       else {
@@ -231,5 +278,6 @@ void updateSerial() {
 
 void jawHomeLimSwISR()
 {
+  Serial.write("!\n");
   jawLimitHit = true;
 }
