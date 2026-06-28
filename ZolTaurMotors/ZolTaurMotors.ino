@@ -203,6 +203,7 @@ void updateSerial() {
         // tone() outputs a square wave at the specified frequency, either
         // until you stop it or until the optional time parameter elapses.
         tone(kArmStepPin, armSpeedMicrostepsPerSecond);
+        armRunning = true;
       } 
       
       // --- COMMAND: MOUTH HOME (STOP TALKING) ---
