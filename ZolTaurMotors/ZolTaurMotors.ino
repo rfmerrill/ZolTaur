@@ -280,6 +280,5 @@ void updateSerial() {
 
 void jawHomeLimSwISR()
 {
-  Serial.write("!\n");
   jawLimitHit = true;
 }
