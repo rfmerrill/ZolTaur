@@ -1,6 +1,6 @@
 /*
  * Pawprint Prototyping:
- * 
+ *
  * Arduino Mega
  * Libraries Used:
  */
@@ -13,12 +13,13 @@
 // `constexpr` by default has external linkage, yuck.
 namespace {
 
-//Debug pin
+// Debug pin
 constexpr uint8_t debugPin = 21;
 
-//Motors ///////////////////////
-// don't use unsigned types for math, see: https://google.github.io/styleguide/cppguide.html#Integer_Types
-// Unsigned types have unintuitive semantics and can hide errors (see below).
+// Motors ///////////////////////
+//  don't use unsigned types for math
+//  see: https://google.github.io/styleguide/cppguide.html#Integer_Types
+//  Unsigned types have unintuitive semantics and can hide errors.
 constexpr int armSpeedDeciDegPerSec = 300;
 constexpr int armStepsPerRevolution = 200;
 constexpr int armMicrostepsPerStep = 8;
@@ -28,14 +29,18 @@ constexpr int armMicrostepsPerStep = 8;
 // (this is caught at compile time for SIGNED types only!!)
 // but the final result needs to fit in `unsigned int`
 // as that's the type of `tone()`'s argument.
-constexpr unsigned int armSpeedMicrostepsPerSecond = (armSpeedDeciDegPerSec * int32_t{armStepsPerRevolution} * armMicrostepsPerStep)
-                                                     / 3600;
+constexpr unsigned int armSpeedMicrostepsPerSecond =
+    (armSpeedDeciDegPerSec * int32_t{armStepsPerRevolution} * armMicrostepsPerStep) / 3600;
 static_assert(armSpeedMicrostepsPerSecond == 133);
 
-//Jaw Speed
+// Jaw Speed
 constexpr int jawSpeedDeciDegPerSec = 250;
-constexpr int jawMoveDeciDeg = 900; // Movement arc for each normal back-and-forth
-constexpr int jawExtraLimitMoveDeciDeg = 150; // Extra movement away from limit to avoid hitting it again
+
+// Movement arc for each normal back-and-forth
+constexpr int jawMoveDeciDeg = 900;
+
+// Extra movement away from limit to avoid hitting it again
+constexpr int jawExtraLimitMoveDeciDeg = 150;
 constexpr int jawStepsPerRevolution = 200;
 constexpr int jawMicrostepsPerStep = 8;
 constexpr int kJawLimitWaitTimeMs = 300;
@@ -44,9 +49,6 @@ constexpr int kJawLimitWaitTimeMs = 300;
 constexpr float jawSpeedRevsPerMin = (jawSpeedDeciDegPerSec * 60.0) / 3600.0;
 static_assert(jawSpeedRevsPerMin == 4.166666666666667);
 
-//Jaw home angle is how far from home the position target is set to. 
-//The goal is to get close to home without setting off the limit switch
-constexpr int jawHomeAngle = 25;
 // Set this to either 1 or -1
 constexpr int jawDirectionAwayFromLimit = 1;
 constexpr int jawDirectionTowardsLimit = -jawDirectionAwayFromLimit;
@@ -79,7 +81,7 @@ int jawDirection = jawDirectionTowardsLimit;
 bool jawDoRestartMove = false;
 
 volatile bool armRunning = false;
-}
+}  // namespace
 
 bool isJawReady() {
   return !jawRunning;
@@ -89,16 +91,17 @@ bool isArmReady() {
   return !armRunning;
 }
 
-void setup()
-{
+void setup() {
   // put your setup code here, to run once:
-  
-  //Set Debug Pin
+
+  // Set Debug Pin
   pinMode(debugPin, INPUT);
 
-  //Enable Serial and wait for it to connect.
+  // Enable Serial and wait for it to connect.
   Serial.begin(9600);
-  while (!Serial) {}
+  while (!Serial) {
+    // pass
+  }
 
   // Limit switch should be across pin and ground.
   pinMode(kJawLimitSwitchPin, INPUT_PULLUP);
@@ -113,7 +116,7 @@ void setup()
   digitalWrite(kArmSleepPin, 1);
   // STEP state doesn't matter.
 
-  //attach interrupts
+  // attach interrupts
   attachInterrupt(digitalPinToInterrupt(kJawLimitSwitchPin), jawHomeLimSwISR, FALLING);
 
   jawStepper.begin(jawSpeedRevsPerMin, jawMicrostepsPerStep);
@@ -122,14 +125,14 @@ void setup()
 }
 
 // put your main code here, to run repeatedly:
-void loop()
-{
+void loop() {
   // motor updates go here
   updateJawStepper();
   updateSerial();
 }
 
-inline bool isLimitSwitchClosed() {
+inline bool isLimitSwitchDepressed() {
+  // Limit switch is normally open--pressing it connects to gnd.
   return digitalRead(kJawLimitSwitchPin) == LOW;
 }
 
@@ -137,7 +140,7 @@ void initJawStepper() {
   jawDirection = jawDirectionTowardsLimit;
   jawRunning = true;
 
-  if(isLimitSwitchClosed()) {
+  if (isLimitSwitchDepressed()) {
     // we're already sitting on the limit switch
     jawLimitHit = true;
   } else {
@@ -163,7 +166,7 @@ void updateJawStepper() {
       // Normally we care about limit switch edges.
       // however, if we were not running, then this value
       // may be stale.
-      jawLimitHit = isLimitSwitchClosed();
+      jawLimitHit = isLimitSwitchDepressed();
     }
   }
 
@@ -172,10 +175,13 @@ void updateJawStepper() {
   if (jawLimitHit) {
     // TODO: which direction is away from the limit switch?
     jawDirection = jawDirectionAwayFromLimit;
-    wait_until = millis() + kJawLimitWaitTimeMs;
+
     // This will probably get activated more than once due to bounce, just
     // need to make sure we don't start moving until it settles.
+    wait_until = millis() + kJawLimitWaitTimeMs;
+
     jawLimitHit = false;
+    // Move slightly further this time so we don't hit the limit switch again.
     movement_deci_deg += jawExtraLimitMoveDeciDeg;
     jawDoRestartMove = true;
   } else if (wait_until > millis()) {
@@ -215,7 +221,10 @@ void updateJawStepper() {
 void updateSerial() {
   if (Serial.available() > 0) {
     int charToRead = Serial.read();
-    if (charToRead < 0) return;
+
+    if (charToRead < 0) {
+      return;
+    }
 
     String command = serialParser.parse(charToRead);
 
@@ -227,21 +236,21 @@ void updateSerial() {
       // --- COMMAND: IS READY? ---
       // ?R
       if (command == SerialParser::QUERY_IS_READY) {
-         // Return 1 only if both motors have successfully found their home position
-         if(isArmReady() && isJawReady()) {
-             response += "1";
-         } else {
-             response += "0";
-         }
+        // Return 1 only if both motors have successfully found their home position
+        if (isArmReady() && isJawReady()) {
+          response += "1";
+        } else {
+          response += "0";
+        }
       }
-      
+
       // --- COMMAND: HAND HOME (STOP WAVING) ---
       // !HH
       else if (command == SerialParser::COMMAND_HAND_HOME) {
         noTone(kArmStepPin);
         armRunning = false;
-      } 
-      
+      }
+
       // --- COMMAND: HAND WAVE (START WAVING) ---
       // !HW
       else if (command == SerialParser::COMMAND_HAND_WAVE) {
@@ -251,34 +260,33 @@ void updateSerial() {
         // until you stop it or until the optional time parameter elapses.
         tone(kArmStepPin, armSpeedMicrostepsPerSecond);
         armRunning = true;
-      } 
-      
+      }
+
       // --- COMMAND: MOUTH HOME (STOP TALKING) ---
       // !MH
       else if (command == SerialParser::COMMAND_MOUTH_HOME) {
         jawRequested = false;
-      } 
-      
+      }
+
       // --- COMMAND: MOUTH TALK (START TALKING) ---
       // !MW
       else if (command == SerialParser::COMMAND_MOUTH_TALK) {
         jawRequested = true;
-      } 
-      
+      }
+
       else {
         // Unknown command
         response += "?";
       }
-      
+
       response += '\n';
       Serial.write(response.c_str(), response.length());
     }
   }
 }
 
-//here be ISR's
+// here be ISR's
 
-void jawHomeLimSwISR()
-{
+void jawHomeLimSwISR() {
   jawLimitHit = true;
 }

@@ -1,0 +1,10 @@
+# `clang-format-18` was used
+
+BasedOnStyle: Google
+SortIncludes: false
+ColumnLimit: 100
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
