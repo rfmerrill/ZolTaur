@@ -60,6 +60,8 @@ constexpr uint8_t kArmSleepPin = 10;
 constexpr uint8_t kJawDirPin = 11;
 constexpr uint8_t kJawStepPin = 12;
 constexpr uint8_t kJawSleepPin = 13;
+// Limit switch should be normally open to ground, and connected to
+// a pin that Arduino supports interrupt on (2, 3, 18-21 on Mega?)
 constexpr uint8_t kJawLimitSwitchPin = 3;
 
 // Serial Parser
