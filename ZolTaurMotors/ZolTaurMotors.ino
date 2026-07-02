@@ -37,10 +37,10 @@ static_assert(armSpeedMicrostepsPerSecond == 133);
 constexpr int jawSpeedDeciDegPerSec = 250;
 
 // Movement arc for each normal back-and-forth
-constexpr int jawMoveDeciDeg = 900;
+constexpr int jawMoveDeciDeg = 200;
 
 // Extra movement away from limit to avoid hitting it again
-constexpr int jawExtraLimitMoveDeciDeg = 150;
+constexpr int jawExtraLimitMoveDeciDeg = 50;
 constexpr int jawStepsPerRevolution = 200;
 constexpr int jawMicrostepsPerStep = 8;
 constexpr int kJawLimitWaitTimeMs = 300;
@@ -52,6 +52,7 @@ static_assert(jawSpeedRevsPerMin == 4.166666666666667);
 // Set this to either 1 or -1
 constexpr int jawDirectionAwayFromLimit = 1;
 constexpr int jawDirectionTowardsLimit = -jawDirectionAwayFromLimit;
+constexpr int jawDirectionTowardsHome = jawDirectionAwayFromLimit;
 
 constexpr uint8_t kArmDirPin = 8;
 // Pin 9 is OC2A so we could use timer compare out
@@ -203,7 +204,7 @@ void updateJawStepper() {
     // run the next action and see if the commanded movement is done
     bool moveDone = (jawStepper.nextAction() == 0);
     if (moveDone) {
-      if (!jawRequested && jawDirection == jawDirectionTowardsLimit) {
+      if (!jawRequested && jawDirection == jawDirectionTowardsHome) {
         // we were moving towards limit and ended without hitting it.
         // We are home!
         jawRunning = false;
@@ -289,4 +290,5 @@ void updateSerial() {
 
 void jawHomeLimSwISR() {
   jawLimitHit = true;
+  // Serial.write('!');
 }
